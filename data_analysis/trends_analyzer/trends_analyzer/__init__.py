@@ -1,0 +1,1 @@
+from trends_analyzer.trends_analyzer.analyzer_modules import *
