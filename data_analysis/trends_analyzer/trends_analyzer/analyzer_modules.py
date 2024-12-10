@@ -66,35 +66,39 @@ class TimeSeriesAnalyzer:
         keyword (str): Ключевое слово для анализа.
         timeframe (str): Временной интервал данных в формате Google Trends.
         data (pd.Series): Временной ряд интереса по ключевому слову.
-        moving_avg_data (pd.Series): Ряд скользящего среднего.
+        moving_average_data (pd.Series): Ряд скользящего среднего.
     """
 
-    def __init__(self, keyword: str, timeframe: str) -> None:
-        """
-        Инициализирует TimeSeriesAnalyzer с заданным ключевым словом и временным
-        интервалом.
+    # def __init__(self, keyword: str, timeframe: str) -> None:
+    #     """
+    #     Инициализирует TimeSeriesAnalyzer с заданным ключевым словом и временным
+    #     интервалом.
 
-        Args:
-            keyword (str): Ключевое слово для анализа.
-            timeframe (str): Временной интервал для данных
-            (формат 'YYYY-MM-DD YYYY-MM-DD').
+    #     Args:
+    #         keyword (str): Ключевое слово для анализа.
+    #         timeframe (str): Временной интервал для данных
+    #         (формат 'YYYY-MM-DD YYYY-MM-DD').
+    #     """
+    #     self.pytrends = TrendReq()
+    #     self.keyword = keyword
+    #     self.timeframe = timeframe
+    #     self.data = self._load_data()
+    #     self.moving_average_data = self.calculate_moving_average()
+    def __init__(self, keyword: str, timeframe: str, data: pd.Series, delay: int = 10) -> None:
         """
-        self.pytrends = TrendReq()
+        Инициализация объекта класса TimeSeriesAnalyzer по ключевому слову и временному интервалу.
+
+        Аргументы:
+            keyword (str): Ключевое слово для поиска.
+            timeframe (str): Временной интервал данных.
+            data (pd.Series): Временной ряд данных, полученных извне.
+            delay (int): Задержка между запросами (для примера, можно использовать для API).
+        """
         self.keyword = keyword
         self.timeframe = timeframe
-        self.data = self._load_data()
-        self.moving_avg_data = self.calculate_moving_average()
-
-    def _load_data(self) -> pd.Series:
-        """
-        Загружает данные из Google Trends по ключевому слову и возвращает временной ряд.
-
-        Returns:
-            pd.Series: Временной ряд с данными интереса по ключевому слову.
-        """
-        self.pytrends.build_payload([self.keyword], timeframe=self.timeframe)
-        df = self.pytrends.interest_over_time()
-        return df[self.keyword].dropna()
+        self.data = data  
+        self.delay = delay  
+        self.moving_average_data = self.calculate_moving_average()
 
     @validate_args
     def calculate_moving_average(self, window_size: int = 7) -> pd.Series:
@@ -120,41 +124,41 @@ class TimeSeriesAnalyzer:
         Returns:
             pd.Series: Временной ряд с дифференциалом скользящего среднего.
         """
-        return self.moving_avg_data.diff()
+        return self.moving_average_data.diff()
 
     def calculate_auto_correlation(self, lags: int = None) -> pd.Series:
         """
         Вычисляет автокорреляцию скользящего среднего для заданного количества лагов.
         """
-        if self.moving_avg_data.isnull().all():
+        if self.moving_average_data.isnull().all():
             return pd.Series(
-                [float('nan')] * len(self.moving_avg_data),
-                index=self.moving_avg_data.index
+                [float('nan')] * len(self.moving_average_data),
+                index=self.moving_average_data.index
             )
 
-        valid_data = self.moving_avg_data.dropna()
+        valid_data = self.moving_average_data.dropna()
 
         if lags is None:
             lags = len(valid_data) - 1
 
         if len(valid_data) < 2:
             return pd.Series(
-                [float('nan')] * len(self.moving_avg_data),
-                index=self.moving_avg_data.index
+                [float('nan')] * len(self.moving_average_data),
+                index=self.moving_average_data.index
             )
 
         # Вычисление автокорреляции
         acf_values = acf(valid_data, nlags=lags)
 
         # Создание серии с NaN значениями для соответствия длине данных
-        acf_series = pd.Series([float('nan')] * (len(self.moving_avg_data) - len(acf_values[1:])),
-                               index=self.moving_avg_data.index[:len(self.moving_avg_data) - len(acf_values[1:])])
+        acf_series = pd.Series([float('nan')] * (len(self.moving_average_data) - len(acf_values[1:])),
+                               index=self.moving_average_data.index[:len(self.moving_average_data) - len(acf_values[1:])])
 
         # Соединение NaN значений и рассчитанных значений автокорреляции
         acf_series = pd.concat([acf_series, pd.Series(acf_values[1:], index=valid_data.index[:len(acf_values[1:])])])
 
         # Приведение индекса к полному индексу данных
-        acf_series.index = self.moving_avg_data.index
+        acf_series.index = self.moving_average_data.index
 
         return acf_series
 
@@ -166,9 +170,9 @@ class TimeSeriesAnalyzer:
         Returns:
             pd.Series: Временной ряд с локальными максимумами.
         """
-        return self.moving_avg_data[
-            (self.moving_avg_data.shift(1) < self.moving_avg_data) &
-            (self.moving_avg_data.shift(-1) < self.moving_avg_data)
+        return self.moving_average_data[
+            (self.moving_average_data.shift(1) < self.moving_average_data) &
+            (self.moving_average_data.shift(-1) < self.moving_average_data)
             ]
 
     @validate_args
@@ -179,9 +183,9 @@ class TimeSeriesAnalyzer:
         Returns:
             pd.Series: Временной ряд с локальными минимумами.
         """
-        return self.moving_avg_data[
-            (self.moving_avg_data.shift(1) > self.moving_avg_data) &
-            (self.moving_avg_data.shift(-1) > self.moving_avg_data)
+        return self.moving_average_data[
+            (self.moving_average_data.shift(1) > self.moving_average_data) &
+            (self.moving_average_data.shift(-1) > self.moving_average_data)
             ]
 
     @validate_args

@@ -1,0 +1,1 @@
+from trends_analyzer.tests.test_module import *

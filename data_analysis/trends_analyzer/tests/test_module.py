@@ -1,6 +1,10 @@
+import io
 import unittest
 import pandas as pd
 from unittest.mock import patch
+import warnings
+import sys
+import os
 from statsmodels.tsa.stattools import acf
 from trends_analyzer.trends_analyzer.analyzer_modules import TimeSeriesAnalyzer
 
@@ -18,19 +22,23 @@ class TestTimeSeriesAnalyzer(unittest.TestCase):
         Args:
             MockTrendReq: Мок-класс для имитации поведения TrendReq из библиотеки pytrends.
         """
-        mock_pytrends = MockTrendReq.return_value
-        mock_data = pd.DataFrame({
-            'minecraft': [10, 12, 15, 13, 18, 20, 25, 22, 28, 30, 35, 30, 28, 26, 25, 24,
-                          10, 12, 15, 13, 18, 20, 25, 22, 28, 30, 35, 30, 28, 26, 25, 24]
-        })
-        mock_data['date'] = pd.date_range(start='2018-02-01', periods=len(mock_data),
-                                          freq='D')
-        mock_data.set_index('date', inplace=True)
-        mock_pytrends.interest_over_time.return_value = mock_data
+        # mock_pytrends = MockTrendReq.return_value
+        # mock_data = pd.DataFrame({
+        #     'minecraft': [10, 12, 15, 13, 18, 20, 25, 22, 28, 30, 35, 30, 28, 26, 25, 24,
+        #                   10, 12, 15, 13, 18, 20, 25, 22, 28, 30, 35, 30, 28, 26, 25, 24]
+        # })
+        # mock_data['date'] = pd.date_range(start='2018-02-01', periods=len(mock_data),
+        #                                   freq='D')
+        # mock_data.set_index('date', inplace=True)
+        # mock_pytrends.interest_over_time.return_value = mock_data
 
-        self.analyzer_module = TimeSeriesAnalyzer(keyword='minecraft',
-                                                  timeframe='today 5-y')
-
+        # self.analyzer_module = TimeSeriesAnalyzer(keyword='minecraft',
+        #                                           timeframe='today 5-y')
+        self.data = pd.Series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        self.analyzer_module = TimeSeriesAnalyzer(keyword="test_keyword", timeframe="test_timeframe", data=self.data)
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+        self.held_output = io.StringIO()
+        sys.stdout = self.held_output
     def test_calculate_moving_average(self):
         """
         Тестирует метод calculate_moving_average на корректность вычисления
@@ -46,7 +54,7 @@ class TestTimeSeriesAnalyzer(unittest.TestCase):
         дифференциала скользящего среднего.
         """
         result = self.analyzer_module.calculate_differential()
-        expected_result = self.analyzer_module.moving_avg_data.diff()
+        expected_result = self.analyzer_module.moving_average_data.diff()
         pd.testing.assert_series_equal(result, expected_result, check_names=False)
 
     def test_calculate_auto_correlation(self):
@@ -56,7 +64,7 @@ class TestTimeSeriesAnalyzer(unittest.TestCase):
         """
         result = self.analyzer_module.calculate_auto_correlation()
 
-        valid_data = self.analyzer_module.moving_avg_data.dropna()
+        valid_data = self.analyzer_module.moving_average_data.dropna()
         expected_result = acf(valid_data, nlags=len(valid_data) - 1)[1:]
 
         for lag, (res_val, exp_val) in enumerate(zip(result, expected_result), start=1):
@@ -68,11 +76,11 @@ class TestTimeSeriesAnalyzer(unittest.TestCase):
         в скользящем среднем.
         """
         result = self.analyzer_module.find_maxima()
-        expected_result = self.analyzer_module.moving_avg_data[
-            (self.analyzer_module.moving_avg_data.shift(1)
-             < self.analyzer_module.moving_avg_data) &
-            (self.analyzer_module.moving_avg_data.shift(-1)
-             < self.analyzer_module.moving_avg_data)
+        expected_result = self.analyzer_module.moving_average_data[
+            (self.analyzer_module.moving_average_data.shift(1)
+             < self.analyzer_module.moving_average_data) &
+            (self.analyzer_module.moving_average_data.shift(-1)
+             < self.analyzer_module.moving_average_data)
             ]
         pd.testing.assert_series_equal(result, expected_result)
 
@@ -82,11 +90,11 @@ class TestTimeSeriesAnalyzer(unittest.TestCase):
         в скользящем среднем.
         """
         result = self.analyzer_module.find_minima()
-        expected_result = self.analyzer_module.moving_avg_data[
-            (self.analyzer_module.moving_avg_data.shift(1)
-             > self.analyzer_module.moving_avg_data) &
-            (self.analyzer_module.moving_avg_data.shift(-1)
-             > self.analyzer_module.moving_avg_data)
+        expected_result = self.analyzer_module.moving_average_data[
+            (self.analyzer_module.moving_average_data.shift(1)
+             > self.analyzer_module.moving_average_data) &
+            (self.analyzer_module.moving_average_data.shift(-1)
+             > self.analyzer_module.moving_average_data)
             ]
         pd.testing.assert_series_equal(result, expected_result)
 
